@@ -1,8 +1,7 @@
 from ultralytics import YOLO
 import cv2
-import time
 import math
-import numpy as n
+import numpy 
 from gameLogic import TouchGame
 
 # Load model/pose model
@@ -33,12 +32,12 @@ print("Controls:")
 print("P - Pause/Play")
 print("Q - Quit")
 print("F - Fullscreen")
-print("S - Save Screenshot")
+
 
 def distance(p1, p2):
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 
-TOUCH_THRESHOLD = 50
+TOUCH_THRESHOLD = 40
 
 while True:
 
@@ -54,13 +53,13 @@ while True:
         results = model(frame)
 
         # Draw detections
-        annotated_frame = results[0].plot()
+        annotated_frame = frame.copy()
 
         game.update_target()
 
         players = []
 
-        # TARGET (FIXED DISPLAY)
+        # TARGET display
         cv2.putText(
             annotated_frame,
             f"TOUCH YOUR {game.current_target}",
@@ -71,7 +70,7 @@ while True:
             2
         )
 
-        # SCORE DISPLAY (FIXED)
+        # SCORE DISPLAY
        
         cv2.putText(
             annotated_frame,
@@ -84,6 +83,7 @@ while True:
         )
 
         # KEYPOINTS from COCO
+
         if results[0].keypoints is not None:
 
             keypoints = results[0].keypoints.xy.cpu().numpy()
@@ -104,33 +104,46 @@ while True:
 
                 detections = []
 
-                for wrist in wrists:
+                left_ear = person[3]
+                right_ear = person[4]
+                left_eye = person[1]
+                right_eye = person[2]
 
-                   # FIXED LABELS (CRITICAL)
-                    
-                    if distance(nose, wrist) < TOUCH_THRESHOLD:
-                        detections.append("HEAD")
+                head_center = (
+                    (nose[0] + left_ear[0] + right_ear[0] + left_eye[0] + right_eye[0]) / 5,
+                    (nose[1] + left_ear[1] + right_ear[1] + left_eye[1] + right_eye[1]) / 5
+                )
 
-                    if (distance(left_shoulder, wrist) < TOUCH_THRESHOLD or
-                        distance(right_shoulder, wrist) < TOUCH_THRESHOLD):
-                        detections.append("SHOULDERS")
+                head_dist = min(distance(nose, left_wrist), distance(nose, right_wrist))
 
-                    if (distance(left_knee, wrist) < TOUCH_THRESHOLD or
-                        distance(right_knee, wrist) < TOUCH_THRESHOLD):
-                        detections.append("KNEES")
+                shoulder_dist = min(
+                    distance(left_shoulder, left_wrist), distance(left_shoulder, right_wrist),
+                    distance(right_shoulder, left_wrist), distance(right_shoulder, right_wrist)
+                )
 
-                    if (distance(left_ankle, wrist) < TOUCH_THRESHOLD or
-                        distance(right_ankle, wrist) < TOUCH_THRESHOLD):
-                        detections.append("TOES")
+                knee_dist = min(
+                    distance(left_knee, left_wrist), distance(left_knee, right_wrist),
+                    distance(right_knee, left_wrist), distance(right_knee, right_wrist)
+                )
+
+                left_toe = (left_ankle[0], left_ankle[1] + 40)
+                right_toe = (right_ankle[0], right_ankle[1] + 40)
+                toe_dist = min(
+                    distance(left_toe, left_wrist), distance(left_toe, right_wrist),
+                    distance(right_toe, left_wrist), distance(right_toe, right_wrist)
+                )
+
+                parts = {"HEAD": head_dist, "SHOULDER": shoulder_dist, "KNEES": knee_dist, "TOES": toe_dist}
+                closest = min(parts, key=parts.get)
+
+                if parts[closest] < TOUCH_THRESHOLD:
+                    detections.append(closest)
 
                 center_x = nose[0]
 
                 detections = list(set(detections))
 
-                players.append({
-                    "x": center_x,
-                    "detections": detections
-                })
+                players.append({"x": center_x, "detections": detections })
 
             players = sorted(players, key=lambda p: p["x"])
 
@@ -173,7 +186,6 @@ while True:
                     )
                     y += 25
 
-                # FIXED INDENTATION (was broken before)
                 if scored:
                     cv2.putText(
                         annotated_frame,
@@ -186,7 +198,8 @@ while True:
                     )
                     y += 30
 
-    cv2.imshow(window_name, annotated_frame)
+    if annotated_frame is not None:  #guard against uninitialized frame
+            cv2.imshow(window_name, annotated_frame)                   
 
     key = cv2.waitKey(1) & 0xFF
 
