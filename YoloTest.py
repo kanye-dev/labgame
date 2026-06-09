@@ -37,7 +37,10 @@ print("F - Fullscreen")
 def distance(p1, p2):
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 
-TOUCH_THRESHOLD = 40
+KNEE_THRESHOLD = 60
+TOE_THRESHOLD = 50
+SHOULDER_THRESHOLD = 50
+HEAD_THRESHOLD = 80
 
 while True:
 
@@ -114,7 +117,7 @@ while True:
                     (nose[1] + left_ear[1] + right_ear[1] + left_eye[1] + right_eye[1]) / 5
                 )
 
-                head_dist = min(distance(nose, left_wrist), distance(nose, right_wrist))
+                head_dist = min(distance(head_center, left_wrist), distance(head_center, right_wrist))
 
                 shoulder_dist = min(
                     distance(left_shoulder, left_wrist), distance(left_shoulder, right_wrist),
@@ -128,6 +131,7 @@ while True:
 
                 left_toe = (left_ankle[0], left_ankle[1] + 40)
                 right_toe = (right_ankle[0], right_ankle[1] + 40)
+
                 toe_dist = min(
                     distance(left_toe, left_wrist), distance(left_toe, right_wrist),
                     distance(right_toe, left_wrist), distance(right_toe, right_wrist)
@@ -136,8 +140,14 @@ while True:
                 parts = {"HEAD": head_dist, "SHOULDER": shoulder_dist, "KNEES": knee_dist, "TOES": toe_dist}
                 closest = min(parts, key=parts.get)
 
-                if parts[closest] < TOUCH_THRESHOLD:
-                    detections.append(closest)
+                if parts["HEAD"] < HEAD_THRESHOLD and closest == "HEAD":
+                    detections.append("HEAD")
+                elif parts[closest] < SHOULDER_THRESHOLD and closest == "SHOULDER":
+                    detections.append("SHOULDER")
+                elif parts[closest] < KNEE_THRESHOLD and closest == "KNEES":
+                    detections.append("KNEES")
+                elif parts[closest] < TOE_THRESHOLD and closest == "TOES":
+                    detections.append("TOES")
 
                 center_x = nose[0]
 
